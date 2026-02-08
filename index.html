@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meal Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .drag-over { outline: 2px dashed #f59e0b; outline-offset: -2px; }
+    .dragging { opacity: 0.5; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4">
+  <div id="app" class="max-w-2xl mx-auto"></div>
+
+  <script>
+    const STORAGE_KEY = 'meal-planner-v1';
+
+    const defaultMeals = [
+      { id: 1, name: 'Shrimp Pasta', type: 'cook', ingredients: ['Noodles', 'Frozen Garlic Shrimp'] },
+      { id: 2, name: 'Pizza', type: 'order', place: 'Pinks' },
+      { id: 3, name: 'Ramen', type: 'order', place: 'Jinya' },
+      { id: 4, name: 'Barnabys', type: 'order', place: 'Barnabys' },
+      { id: 5, name: 'El Tiempo', type: 'order', place: 'El Tiempo' },
+      { id: 6, name: 'Mac & Cheese', type: 'cook', ingredients: ["Amy's Box", 'Milk', 'Butter'] },
+      { id: 7, name: 'Chicken Nuggets', type: 'cook', ingredients: ['Frozen Chicken Nuggets'] },
+      { id: 8, name: 'BBQ Chicken', type: 'cook', ingredients: ['Marinated Chicken Thighs'] },
+    ];
+
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    // State
+    let state = load();
+
+    function load() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && saved.meals && saved.week) return saved;
+      } catch (e) {}
+      return { meals: defaultMeals, week: {} };
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-2xl font-bold">Meal Planner</h1>
+          <button onclick="clearWeek()" class="text-sm text-slate-500 hover:text-slate-300">Clear Week</button>
+        </div>
+
+        <!-- Week Grid -->
+        <div class="grid grid-cols-1 gap-3 mb-8">
+          ${days.map(day => {
+            const mealId = state.week[day];
+            const meal = mealId ? state.meals.find(m => m.id === mealId) : null;
+            return `
+              <div class="rounded-lg p-4 ${meal ? 'bg-slate-700 border-2 border-amber-500/50' : 'bg-slate-800 border-2 border-dashed border-slate-600'}"
+                   ondragover="event.preventDefault(); this.classList.add('drag-over')"
+                   ondragleave="this.classList.remove('drag-over')"
+                   ondrop="dropMeal(event, '${day}'); this.classList.remove('drag-over')">
+                <div class="flex justify-between items-center">
+                  <span class="text-sm font-medium text-slate-400 w-24">${day}</span>
+                  ${meal ? `
+                    <div class="flex-1">
+                      <span class="font-semibold text-amber-300">${meal.name}</span>
+                      <span class="text-xs ml-2 px-2 py-0.5 rounded ${meal.type === 'order' ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'}">${meal.type === 'order' ? meal.place : 'cook'}</span>
+                    </div>
+                    <button onclick="clearDay('${day}')" class="text-slate-500 hover:text-red-400 ml-2 text-lg">&times;</button>
+                  ` : `
+                    <span class="flex-1 text-slate-600 text-sm">Drag a meal here</span>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Meals -->
+        <h2 class="text-lg font-semibold mb-3 text-slate-300">Meals</h2>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+          ${state.meals.map(meal => `
+            <div class="bg-slate-800 rounded-lg p-3 cursor-grab active:cursor-grabbing select-none"
+                 draggable="true"
+                 ondragstart="dragMeal(event, ${meal.id})"
+                 ondragend="this.classList.remove('dragging')">
+              <div class="flex justify-between items-start">
+                <div>
+                  <p class="font-semibold text-amber-300">${meal.name}</p>
+                  <p class="text-xs text-slate-500 mt-1">${meal.type === 'order' ? 'Order: ' + meal.place : meal.ingredients.join(', ')}</p>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded whitespace-nowrap ${meal.type === 'order' ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'}">${meal.type === 'order' ? 'order' : 'cook'}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Add Meal -->
+        <div class="bg-slate-800 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-slate-400 mb-3">Add Meal</h3>
+          <div class="flex gap-2 mb-2">
+            <input id="new-name" type="text" placeholder="Meal name" class="flex-1 bg-slate-700 rounded px-3 py-2 text-sm">
+            <select id="new-type" class="bg-slate-700 rounded px-3 py-2 text-sm" onchange="toggleAddFields()">
+              <option value="cook">Cook</option>
+              <option value="order">Order</option>
+            </select>
+          </div>
+          <div id="cook-fields">
+            <input id="new-ingredients" type="text" placeholder="Ingredients (comma separated)" class="w-full bg-slate-700 rounded px-3 py-2 text-sm mb-2">
+          </div>
+          <div id="order-fields" class="hidden">
+            <input id="new-place" type="text" placeholder="Restaurant name" class="w-full bg-slate-700 rounded px-3 py-2 text-sm mb-2">
+          </div>
+          <button onclick="addMeal()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 px-4 py-2 rounded text-sm font-semibold w-full">Add</button>
+        </div>
+      `;
+    }
+
+    // Drag and drop
+    function dragMeal(e, id) {
+      e.dataTransfer.setData('text/plain', id);
+      e.target.classList.add('dragging');
+    }
+
+    function dropMeal(e, day) {
+      e.preventDefault();
+      const id = parseInt(e.dataTransfer.getData('text/plain'));
+      state.week[day] = id;
+      save();
+      render();
+    }
+
+    function clearDay(day) {
+      delete state.week[day];
+      save();
+      render();
+    }
+
+    function clearWeek() {
+      state.week = {};
+      save();
+      render();
+    }
+
+    function toggleAddFields() {
+      const type = document.getElementById('new-type').value;
+      document.getElementById('cook-fields').classList.toggle('hidden', type === 'order');
+      document.getElementById('order-fields').classList.toggle('hidden', type === 'cook');
+    }
+
+    function addMeal() {
+      const name = document.getElementById('new-name').value.trim();
+      if (!name) return;
+
+      const type = document.getElementById('new-type').value;
+      const meal = { id: Date.now(), name, type };
+
+      if (type === 'cook') {
+        const raw = document.getElementById('new-ingredients').value;
+        meal.ingredients = raw.split(',').map(s => s.trim()).filter(Boolean);
+        if (!meal.ingredients.length) meal.ingredients = ['(none listed)'];
+      } else {
+        meal.place = document.getElementById('new-place').value.trim() || name;
+      }
+
+      state.meals.push(meal);
+      save();
+      render();
+    }
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>

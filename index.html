@@ -14,37 +14,85 @@
   <div id="app" class="max-w-2xl mx-auto"></div>
 
   <script>
-    const STORAGE_KEY = 'meal-planner-v1';
+    const STORAGE_KEY = 'meal-planner-v2';
 
     const defaultMeals = [
-      { id: 1, name: 'Shrimp Pasta', type: 'cook', ingredients: ['Noodles', 'Frozen Garlic Shrimp'] },
-      { id: 2, name: 'Pizza', type: 'order', place: 'Pinks' },
-      { id: 3, name: 'Ramen', type: 'order', place: 'Jinya' },
-      { id: 4, name: 'Barnabys', type: 'order', place: 'Barnabys' },
-      { id: 5, name: 'El Tiempo', type: 'order', place: 'El Tiempo' },
-      { id: 6, name: 'Mac & Cheese', type: 'cook', ingredients: ["Amy's Box", 'Milk', 'Butter'] },
-      { id: 7, name: 'Chicken Nuggets', type: 'cook', ingredients: ['Frozen Chicken Nuggets'] },
-      { id: 8, name: 'BBQ Chicken', type: 'cook', ingredients: ['Marinated Chicken Thighs'] },
+      { id: 1, name: 'Shrimp Pasta', type: 'cook', category: 'Main', ingredients: ['Noodles', 'Frozen Garlic Shrimp'], instructions: [] },
+      { id: 2, name: 'Pizza', type: 'order', category: 'Main', place: 'Pinks' },
+      { id: 3, name: 'Ramen', type: 'order', category: 'Main', place: 'Jinya' },
+      { id: 4, name: 'Barnabys', type: 'order', category: 'Main', place: 'Barnabys' },
+      { id: 5, name: 'El Tiempo', type: 'order', category: 'Main', place: 'El Tiempo' },
+      { id: 6, name: 'Mac & Cheese', type: 'cook', category: 'Main', ingredients: ["Amy's Box", 'Milk', 'Butter'], instructions: [] },
+      { id: 7, name: 'Chicken Nuggets', type: 'cook', category: 'Main', ingredients: ['Frozen Chicken Nuggets'], instructions: [] },
+      { id: 8, name: 'BBQ Chicken', type: 'cook', category: 'Main', ingredients: ['Marinated Chicken Thighs'], instructions: [] },
     ];
+
+    const CATEGORIES = ['All', 'Main', 'Soup', 'Bread', 'Dessert', 'Side', 'Salad', 'Condiment', 'Drink'];
+    const CATEGORY_COLORS = {
+      Main: 'bg-green-900 text-green-300',
+      Soup: 'bg-orange-900 text-orange-300',
+      Bread: 'bg-yellow-900 text-yellow-300',
+      Dessert: 'bg-pink-900 text-pink-300',
+      Side: 'bg-purple-900 text-purple-300',
+      Salad: 'bg-emerald-900 text-emerald-300',
+      Condiment: 'bg-red-900 text-red-300',
+      Drink: 'bg-cyan-900 text-cyan-300',
+    };
 
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-    // State
     let state = load();
+    let activeFilter = 'All';
+    let recipesLoaded = false;
 
     function load() {
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
         if (saved && saved.meals && saved.week) return saved;
       } catch (e) {}
-      return { meals: defaultMeals, week: {} };
+      return { meals: [...defaultMeals], week: {} };
     }
 
     function save() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
+    async function loadRecipes() {
+      try {
+        const resp = await fetch('recipes.json');
+        if (!resp.ok) return;
+        const recipes = await resp.json();
+        const existingIds = new Set(state.meals.map(m => m.id));
+        let added = 0;
+        for (const r of recipes) {
+          if (!existingIds.has(r.id)) {
+            state.meals.push(r);
+            existingIds.add(r.id);
+            added++;
+          }
+        }
+        if (added > 0) {
+          save();
+          console.log(`Loaded ${added} new recipes`);
+        }
+        recipesLoaded = true;
+      } catch (e) {
+        console.log('No recipes.json found, using defaults');
+      }
+      render();
+    }
+
+    function catColor(cat) {
+      return CATEGORY_COLORS[cat] || 'bg-slate-700 text-slate-300';
+    }
+
+    function filteredMeals() {
+      if (activeFilter === 'All') return state.meals;
+      return state.meals.filter(m => m.category === activeFilter);
+    }
+
     function render() {
+      const meals = filteredMeals();
       const app = document.getElementById('app');
       app.innerHTML = `
         <div class="flex items-center justify-between mb-6">
@@ -62,37 +110,47 @@
                    ondragover="event.preventDefault(); this.classList.add('drag-over')"
                    ondragleave="this.classList.remove('drag-over')"
                    ondrop="dropMeal(event, '${day}'); this.classList.remove('drag-over')">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm font-medium text-slate-400 w-24">${day}</span>
-                  ${meal ? `
-                    <div class="flex-1">
-                      <span class="font-semibold text-amber-300">${meal.name}</span>
-                      <span class="text-xs ml-2 px-2 py-0.5 rounded ${meal.type === 'order' ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'}">${meal.type === 'order' ? meal.place : 'cook'}</span>
-                    </div>
-                    <button onclick="clearDay('${day}')" class="text-slate-500 hover:text-red-400 ml-2 text-lg">&times;</button>
-                  ` : `
-                    <span class="flex-1 text-slate-600 text-sm">Drag a meal here</span>
-                  `}
-                </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-slate-400 w-24">${day}</span>
+                    ${meal ? `
+                      <div class="flex-1 flex items-center gap-2">
+                        <span class="font-semibold text-amber-300">${meal.name}</span>
+                        <span class="text-xs px-2 py-0.5 rounded ${meal.type === 'order' ? 'bg-blue-900 text-blue-300' : catColor(meal.category)}">${meal.type === 'order' ? meal.place : meal.category || 'cook'}</span>
+                      </div>
+                      <button onclick="clearDay('${day}')" class="text-slate-500 hover:text-red-400 ml-2 text-lg">&times;</button>
+                    ` : `
+                      <span class="flex-1 text-slate-600 text-sm">Drag a meal here</span>
+                    `}
+                  </div>
               </div>
             `;
           }).join('')}
         </div>
 
+        <!-- Category Filters -->
+        <div class="flex flex-wrap gap-2 mb-4">
+          ${CATEGORIES.filter(c => c === 'All' || state.meals.some(m => m.category === c)).map(cat => `
+            <button onclick="setFilter('${cat}')"
+                    class="text-xs px-3 py-1.5 rounded-full transition ${activeFilter === cat ? 'bg-amber-500 text-slate-900 font-semibold' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}">
+              ${cat}${cat !== 'All' ? ` (${state.meals.filter(m => m.category === cat).length})` : ''}
+            </button>
+          `).join('')}
+        </div>
+
         <!-- Meals -->
-        <h2 class="text-lg font-semibold mb-3 text-slate-300">Meals</h2>
+        <h2 class="text-lg font-semibold mb-3 text-slate-300">Meals <span class="text-sm font-normal text-slate-500">(${meals.length})</span></h2>
         <div class="grid grid-cols-2 gap-3 mb-6">
-          ${state.meals.map(meal => `
+          ${meals.map(meal => `
             <div class="bg-slate-800 rounded-lg p-3 cursor-grab active:cursor-grabbing select-none"
                  draggable="true"
                  ondragstart="dragMeal(event, ${meal.id})"
                  ondragend="this.classList.remove('dragging')">
               <div class="flex justify-between items-start">
-                <div>
-                  <p class="font-semibold text-amber-300">${meal.name}</p>
-                  <p class="text-xs text-slate-500 mt-1">${meal.type === 'order' ? 'Order: ' + meal.place : meal.ingredients.join(', ')}</p>
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-amber-300 text-sm truncate">${meal.name}</p>
+                  <p class="text-xs text-slate-500 mt-1 truncate">${meal.type === 'order' ? 'Order: ' + meal.place : (meal.ingredients || []).slice(0, 3).join(', ')}</p>
                 </div>
-                <span class="text-xs px-2 py-0.5 rounded whitespace-nowrap ${meal.type === 'order' ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'}">${meal.type === 'order' ? 'order' : 'cook'}</span>
+                <span class="text-xs px-2 py-0.5 rounded whitespace-nowrap ml-2 ${meal.type === 'order' ? 'bg-blue-900 text-blue-300' : catColor(meal.category)}">${meal.type === 'order' ? 'order' : meal.category || 'cook'}</span>
               </div>
             </div>
           `).join('')}
@@ -109,6 +167,9 @@
             </select>
           </div>
           <div id="cook-fields">
+            <select id="new-category" class="w-full bg-slate-700 rounded px-3 py-2 text-sm mb-2">
+              ${CATEGORIES.filter(c => c !== 'All').map(c => `<option value="${c}" ${c === 'Main' ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
             <input id="new-ingredients" type="text" placeholder="Ingredients (comma separated)" class="w-full bg-slate-700 rounded px-3 py-2 text-sm mb-2">
           </div>
           <div id="order-fields" class="hidden">
@@ -119,7 +180,11 @@
       `;
     }
 
-    // Drag and drop
+    function setFilter(cat) {
+      activeFilter = cat;
+      render();
+    }
+
     function dragMeal(e, id) {
       e.dataTransfer.setData('text/plain', id);
       e.target.classList.add('dragging');
@@ -159,10 +224,13 @@
       const meal = { id: Date.now(), name, type };
 
       if (type === 'cook') {
+        meal.category = document.getElementById('new-category').value;
         const raw = document.getElementById('new-ingredients').value;
         meal.ingredients = raw.split(',').map(s => s.trim()).filter(Boolean);
         if (!meal.ingredients.length) meal.ingredients = ['(none listed)'];
+        meal.instructions = [];
       } else {
+        meal.category = 'Main';
         meal.place = document.getElementById('new-place').value.trim() || name;
       }
 
@@ -171,8 +239,9 @@
       render();
     }
 
-    // Initial render
+    // Initial render + load recipes
     render();
+    loadRecipes();
   </script>
 </body>
 </html>

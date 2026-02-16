@@ -8,6 +8,13 @@
   <style>
     .drag-over { outline: 2px dashed #f59e0b; outline-offset: -2px; }
     .dragging { opacity: 0.5; }
+
+    @media print {
+      body { background: white; color: black; }
+      .no-print { display: none !important; }
+      .week-grid { page-break-inside: avoid; }
+      .meal-card { border: 1px solid #ccc; background: white; color: black; }
+    }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4">
@@ -97,11 +104,15 @@
       app.innerHTML = `
         <div class="flex items-center justify-between mb-6">
           <h1 class="text-2xl font-bold">Meal Planner</h1>
-          <button onclick="clearWeek()" class="text-sm text-slate-500 hover:text-slate-300">Clear Week</button>
+          <div class="flex gap-3">
+            <button onclick="printWeek()" class="text-sm px-3 py-1.5 bg-amber-600 hover:bg-amber-700 rounded no-print">🖨️ Print</button>
+            <button onclick="exportToNotion()" class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded no-print">📋 Copy for Notion</button>
+            <button onclick="clearWeek()" class="text-sm text-slate-500 hover:text-slate-300 no-print">Clear Week</button>
+          </div>
         </div>
 
         <!-- Week Grid -->
-        <div class="grid grid-cols-1 gap-3 mb-8">
+        <div class="week-grid grid grid-cols-1 gap-3 mb-8">
           ${days.map(day => {
             const mealId = state.week[day];
             const meal = mealId ? state.meals.find(m => m.id === mealId) : null;
@@ -208,6 +219,28 @@
       state.week = {};
       save();
       render();
+    }
+
+    function printWeek() {
+      window.print();
+    }
+
+    function exportToNotion() {
+      const rows = days.map(day => {
+        const mealId = state.week[day];
+        const meal = mealId ? state.meals.find(m => m.id === mealId) : null;
+        const mealName = meal ? meal.name : '—';
+        const mealType = meal ? (meal.type === 'order' ? `Order (${meal.place})` : meal.category || 'Cook') : '—';
+        return `${day}\t${mealName}\t${mealType}`;
+      }).join('\n');
+
+      const text = `Day\tMeal\tType\n${rows}`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        alert('✅ Copied to clipboard!\n\nPaste into Notion:\n1. Create a table with columns: Day, Meal, Type\n2. Paste (Ctrl+V) - Notion will auto-format it');
+      }).catch(err => {
+        alert('❌ Copy failed. Please allow clipboard access.');
+      });
     }
 
     function toggleAddFields() {

@@ -102,9 +102,9 @@
       const meals = filteredMeals();
       const app = document.getElementById('app');
       app.innerHTML = `
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 class="text-2xl font-bold">Meal Planner</h1>
-          <div class="flex gap-3">
+          <div class="flex flex-wrap gap-2">
             <button onclick="printWeek()" class="text-sm px-3 py-1.5 bg-amber-600 hover:bg-amber-700 rounded no-print">🖨️ Print</button>
             <button onclick="exportToNotion()" class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded no-print">📋 Copy for Notion</button>
             <button onclick="syncToTRMNL()" id="sync-btn" class="text-sm px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded no-print">📡 Sync to TRMNL</button>

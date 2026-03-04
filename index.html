@@ -248,16 +248,26 @@
         <div class="week-grid grid grid-cols-1 gap-3 mb-8">
           ${days.map(day => {
             const mealId = state.week[day];
+            const sideId = state.sides ? state.sides[day] : null;
             const meal = mealId ? state.meals.find(m => m.id === mealId) : null;
+            const mains = state.meals.filter(m => m.category === 'Main' || m.type === 'order');
+            const sides = state.meals.filter(m => m.category && m.category !== 'Main' && m.type !== 'order');
+            const hasSelection = meal || sideId;
             return `
-              <div class="rounded-lg p-3 ${meal ? 'bg-slate-700 border-2 border-amber-500/50' : 'bg-slate-800 border-2 border-dashed border-slate-600'}">
+              <div class="rounded-lg p-3 ${hasSelection ? 'bg-slate-700 border-2 border-amber-500/50' : 'bg-slate-800 border-2 border-dashed border-slate-600'}">
                   <div class="flex items-center gap-2">
                     <span class="text-sm font-medium text-slate-400 w-24">${day}</span>
-                    <select onchange="pickMeal('${day}', this.value)" class="flex-1 bg-slate-700 text-slate-100 rounded px-2 py-1.5 text-sm">
-                      <option value="">— pick a meal —</option>
-                      ${state.meals.map(m => `<option value="${m.id}" ${mealId === m.id ? 'selected' : ''}>${m.name}${m.type === 'order' ? ' (order)' : ''}</option>`).join('')}
-                    </select>
-                    ${meal ? `<button onclick="clearDay('${day}')" class="text-slate-500 hover:text-red-400 text-lg">&times;</button>` : ''}
+                    <div class="flex-1 flex flex-col gap-1">
+                      <select onchange="pickMeal('${day}', this.value)" class="w-full bg-slate-700 text-slate-100 rounded px-2 py-1.5 text-sm">
+                        <option value="">— main —</option>
+                        ${mains.map(m => `<option value="${m.id}" ${mealId === m.id ? 'selected' : ''}>${m.name}${m.type === 'order' ? ' (order)' : ''}</option>`).join('')}
+                      </select>
+                      <select onchange="pickSide('${day}', this.value)" class="w-full bg-slate-700 text-slate-100 rounded px-2 py-1.5 text-sm text-slate-400">
+                        <option value="">— side (optional) —</option>
+                        ${sides.map(m => `<option value="${m.id}" ${sideId === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                      </select>
+                    </div>
+                    ${hasSelection ? `<button onclick="clearDay('${day}')" class="text-slate-500 hover:text-red-400 text-lg">&times;</button>` : ''}
                   </div>
               </div>
             `;
@@ -329,8 +339,20 @@
       render();
     }
 
+    function pickSide(day, value) {
+      if (!state.sides) state.sides = {};
+      if (value) {
+        state.sides[day] = parseInt(value);
+      } else {
+        delete state.sides[day];
+      }
+      save();
+      render();
+    }
+
     function clearDay(day) {
       delete state.week[day];
+      if (state.sides) delete state.sides[day];
       save();
       render();
     }
@@ -350,10 +372,13 @@
       const week = {};
       for (const day of days) {
         const mealId = state.week[day];
-        if (!mealId) continue;
-        const meal = state.meals.find(m => m.id === mealId);
-        if (!meal) continue;
-        week[day] = { name: meal.name, type: meal.type };
+        const sideId = state.sides ? state.sides[day] : null;
+        if (!mealId && !sideId) continue;
+        const meal = mealId ? state.meals.find(m => m.id === mealId) : null;
+        const side = sideId ? state.meals.find(m => m.id === sideId) : null;
+        week[day] = {};
+        if (meal) { week[day].name = meal.name; week[day].type = meal.type; }
+        if (side) { week[day].side = side.name; }
       }
 
       if (Object.keys(week).length === 0) {

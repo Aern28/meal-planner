@@ -90,10 +90,6 @@
     .border-slate-600 { border-color: var(--slate-600); }
     .border-amber-500\/50 { border-color: rgba(245, 158, 11, 0.5); }
 
-    /* Cursors */
-    .cursor-grab { cursor: grab; }
-    .active\:cursor-grabbing:active { cursor: grabbing; }
-
     /* Background colors */
     .bg-slate-700 { background-color: var(--slate-700); }
     .bg-slate-800 { background-color: var(--slate-800); }
@@ -137,9 +133,6 @@
     .hover\:text-slate-300:hover { color: var(--slate-300); }
     .hover\:text-red-400:hover { color: var(--red-400); }
 
-    /* Custom */
-    .drag-over { outline: 2px dashed #f59e0b; outline-offset: -2px; }
-    .dragging { opacity: 0.5; }
 
     /* Responsive */
     @media (min-width: 640px) {
@@ -257,21 +250,14 @@
             const mealId = state.week[day];
             const meal = mealId ? state.meals.find(m => m.id === mealId) : null;
             return `
-              <div class="rounded-lg p-4 ${meal ? 'bg-slate-700 border-2 border-amber-500/50' : 'bg-slate-800 border-2 border-dashed border-slate-600'}"
-                   ondragover="event.preventDefault(); this.classList.add('drag-over')"
-                   ondragleave="this.classList.remove('drag-over')"
-                   ondrop="dropMeal(event, '${day}'); this.classList.remove('drag-over')">
-                  <div class="flex justify-between items-center">
+              <div class="rounded-lg p-3 ${meal ? 'bg-slate-700 border-2 border-amber-500/50' : 'bg-slate-800 border-2 border-dashed border-slate-600'}">
+                  <div class="flex items-center gap-2">
                     <span class="text-sm font-medium text-slate-400 w-24">${day}</span>
-                    ${meal ? `
-                      <div class="flex-1 flex items-center gap-2">
-                        <span class="font-semibold text-amber-300">${meal.name}</span>
-                        <span class="text-xs px-2 py-0.5 rounded ${meal.type === 'order' ? 'bg-blue-900 text-blue-300' : catColor(meal.category)}">${meal.type === 'order' ? meal.place : meal.category || 'cook'}</span>
-                      </div>
-                      <button onclick="clearDay('${day}')" class="text-slate-500 hover:text-red-400 ml-2 text-lg">&times;</button>
-                    ` : `
-                      <span class="flex-1 text-slate-600 text-sm">Drag a meal here</span>
-                    `}
+                    <select onchange="pickMeal('${day}', this.value)" class="flex-1 bg-slate-700 text-slate-100 rounded px-2 py-1.5 text-sm">
+                      <option value="">— pick a meal —</option>
+                      ${state.meals.map(m => `<option value="${m.id}" ${mealId === m.id ? 'selected' : ''}>${m.name}${m.type === 'order' ? ' (order)' : ''}</option>`).join('')}
+                    </select>
+                    ${meal ? `<button onclick="clearDay('${day}')" class="text-slate-500 hover:text-red-400 text-lg">&times;</button>` : ''}
                   </div>
               </div>
             `;
@@ -292,10 +278,7 @@
         <h2 class="text-lg font-semibold mb-3 text-slate-300">Meals <span class="text-sm font-normal text-slate-500">(${meals.length})</span></h2>
         <div class="grid grid-cols-2 gap-3 mb-6">
           ${meals.map(meal => `
-            <div class="bg-slate-800 rounded-lg p-3 cursor-grab active:cursor-grabbing select-none"
-                 draggable="true"
-                 ondragstart="dragMeal(event, ${meal.id})"
-                 ondragend="this.classList.remove('dragging')">
+            <div class="bg-slate-800 rounded-lg p-3">
               <div class="flex justify-between items-start">
                 <div class="min-w-0 flex-1">
                   <p class="font-semibold text-amber-300 text-sm truncate">${meal.name}</p>
@@ -336,15 +319,12 @@
       render();
     }
 
-    function dragMeal(e, id) {
-      e.dataTransfer.setData('text/plain', id);
-      e.target.classList.add('dragging');
-    }
-
-    function dropMeal(e, day) {
-      e.preventDefault();
-      const id = parseInt(e.dataTransfer.getData('text/plain'));
-      state.week[day] = id;
+    function pickMeal(day, value) {
+      if (value) {
+        state.week[day] = parseInt(value);
+      } else {
+        delete state.week[day];
+      }
       save();
       render();
     }
@@ -377,7 +357,7 @@
       }
 
       if (Object.keys(week).length === 0) {
-        alert('No meals assigned yet — drag some meals to days first.');
+        alert('No meals assigned yet — pick some meals for the week first.');
         return;
       }
 

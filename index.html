@@ -107,6 +107,7 @@
           <div class="flex gap-3">
             <button onclick="printWeek()" class="text-sm px-3 py-1.5 bg-amber-600 hover:bg-amber-700 rounded no-print">🖨️ Print</button>
             <button onclick="exportToNotion()" class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded no-print">📋 Copy for Notion</button>
+            <button onclick="syncToTRMNL()" id="sync-btn" class="text-sm px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded no-print">📡 Sync to TRMNL</button>
             <button onclick="clearWeek()" class="text-sm text-slate-500 hover:text-slate-300 no-print">Clear Week</button>
           </div>
         </div>
@@ -241,6 +242,42 @@
       }).catch(err => {
         alert('❌ Copy failed. Please allow clipboard access.');
       });
+    }
+
+    async function syncToTRMNL() {
+      const btn = document.getElementById('sync-btn');
+      const week = {};
+      for (const day of days) {
+        const mealId = state.week[day];
+        if (!mealId) continue;
+        const meal = state.meals.find(m => m.id === mealId);
+        if (!meal) continue;
+        week[day] = { name: meal.name, type: meal.type };
+      }
+
+      if (Object.keys(week).length === 0) {
+        alert('No meals assigned yet — drag some meals to days first.');
+        return;
+      }
+
+      btn.textContent = '⏳ Syncing...';
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch('https://ashaman-1.tail125d67.ts.net:5678/webhook/family-meal-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ week }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        btn.textContent = '✅ Synced!';
+        setTimeout(() => { btn.textContent = '📡 Sync to TRMNL'; btn.disabled = false; }, 2000);
+      } catch (err) {
+        console.error('Sync failed:', err);
+        btn.textContent = '❌ Failed';
+        setTimeout(() => { btn.textContent = '📡 Sync to TRMNL'; btn.disabled = false; }, 3000);
+        alert('Sync failed — make sure you\'re on Tailscale and Ashaman is running n8n.');
+      }
     }
 
     function toggleAddFields() {

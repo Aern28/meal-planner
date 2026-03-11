@@ -256,9 +256,9 @@
             return `
               <div class="rounded-lg p-3 ${hasSelection ? 'bg-slate-700 border-2 border-amber-500/50' : 'bg-slate-800 border-2 border-dashed border-slate-600'}">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium text-slate-400 w-24">${day}</span>
+                    <span class="text-sm font-medium text-slate-400 whitespace-nowrap" style="min-width:5rem">${day}</span>
                     <div class="flex-1 flex flex-col gap-1">
-                      <select onchange="pickMeal('${day}', this.value)" class="w-full bg-slate-700 text-slate-100 rounded px-2 py-1.5 text-sm">
+                      <select onchange="pickMeal('${day}', this.value)" class="w-full bg-slate-700 text-slate-100 rounded px-2 py-2 text-sm">
                         <option value="">— main —</option>
                         ${mains.map(m => `<option value="${m.id}" ${mealId === m.id ? 'selected' : ''}>${m.name}${m.type === 'order' ? ' (order)' : ''}</option>`).join('')}
                       </select>
